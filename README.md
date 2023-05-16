@@ -14,6 +14,6 @@ The maximum offset per period is also varied.
 
 All the thresholds/configs are user-definable in the header file.
 
-Initialization requires the necessary SCD4x driver function pointers to be passed to the constructor.
+Initialization requires the necessary SCD4x driver function pointers to be passed to the constructor. This allows for the generic C driver to be used, or C++ class instance methods.
 
 

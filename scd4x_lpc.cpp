@@ -105,7 +105,7 @@ lpc_ret SCD4X::measure()
 		uint32_t offset = SCD4X_LPC_BASELINE_CO2_PPM - co2;
 		fsm.limit = offset > _sig_get_fsm_offset();
 		uint16_t ret = 0xFFFF;
-		scd_fp.frc(fsm.limit ?_sig_get_fsm_offset() : SCD4X_LPC_BASELINE_CO2_PPM, &ret);
+		scd_fp.frc(fsm.limit ?co2+_sig_get_fsm_offset() : SCD4X_LPC_BASELINE_CO2_PPM, &ret);
 		frc_ctr++;
 		prev_frc_offset = ret - 0x8000U;
 		if (yield != NULL)
@@ -128,7 +128,7 @@ lpc_ret SCD4X::measure()
 		uint32_t offset = fsm.gl_min - SCD4X_LPC_BASELINE_CO2_PPM;
 		fsm.limit = offset > _sig_get_fsm_offset();
 		uint16_t ret = 0xFFFF;
-		scd_fp.frc(co2 - fsm.limit ? _sig_get_fsm_offset() : offset,
+		scd_fp.frc(co2 - (fsm.limit ? _sig_get_fsm_offset() : offset),
 				&ret);
 		frc_ctr++;
 		prev_frc_offset = ret - 0x8000U;
