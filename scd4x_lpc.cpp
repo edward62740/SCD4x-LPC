@@ -108,7 +108,7 @@ lpc_ret SCD4X::measure()
   {
 
 	if(fsm._cons_fail > SCD4X_LPC_SCD_FAIL_TOL_TH) return ERR_PANIC;
-	if (co2 < SCD4X_LPC_BASELINE_CO2_PPM) // called if co2 < 400
+	if (co2 < SCD4X_LPC_BASELINE_CO2_PPM && !fsm.expend) // called if co2 < 400
 			{
 
 		fsm.expend = true;
