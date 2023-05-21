@@ -26,6 +26,15 @@ const uint32_t SCD4X_LPC_STD_MAX_CAL_OFFSET = 100;
 
 const uint32_t SCD4X_LPC_SCD_FAIL_TOL_TH = 50;
 
+const uint32_t SCD4X_LPC_CMD_MAX_LOCK_DUR_MS = 10000;
+const uint32_t SCD4X_LPC_CMD_WU_LOCK_DUR_MS = 20;
+const uint32_t SCD4X_LPC_CMD_PD_LOCK_DUR_MS = 1;
+const uint32_t SCD4X_LPC_CMD_MEAS_LOCK_DUR_MS = 5000;
+const uint32_t SCD4X_LPC_CMD_DRDY_LOCK_DUR_MS = 0;
+const uint32_t SCD4X_LPC_CMD_READ_LOCK_DUR_MS = 0;
+const uint32_t SCD4X_LPC_CMD_FRC_LOCK_DUR_MS = 0;
+const uint32_t SCD4X_LPC_CMD_PERSIST_LOCK_DUR_MS = 800;
+
 namespace LPC {
 
   typedef enum {
@@ -37,7 +46,8 @@ namespace LPC {
   public:
     SCD4X(int16_t (*wu)(void), int16_t (*pd)(void), int16_t (*meas)(void),
           int16_t (*drdy)(bool *ready), int16_t (*read)(uint16_t* co2, int32_t* temp, int32_t* hum),
-          int16_t (*frc)(uint16_t target, uint16_t* corr), int16_t (*persist)(void));
+          int16_t (*frc)(uint16_t target, uint16_t* corr), int16_t (*persist)(void),
+		  uint32_t (*getMsTick)(void));
 
     lpc_ret powerOn(void);
     lpc_ret powerOff(void);
@@ -59,19 +69,12 @@ namespace LPC {
       * @brief  This function is called at least 5000ms after measure() and returns
       * 		sensor measurement data and performs FRC if applicable.
       *
-      * 		The yield() passed to this function should run for at
-      * 		least 400ms and is recommended to be a low-power entry code that
-      * 		preserves NVM.
-      *
-      * 		measure() will provide forewarning of FRC, iff co2 is above baseline
-      * 		else the app must handle sporadic calls to yield()
-      *
       *
       * @param  co2,temp,hum pointers to store sensor data
       * @param  yield pointer to app function
       * @retval lpc_ret error code
       */
-    lpc_ret read(uint16_t *co2, int32_t *temp, int32_t *hum, void (*yield)(void) = NULL);
+    lpc_ret read(uint16_t *co2, int32_t *temp, int32_t *hum);
 
     void get_last_frc(int32_t *offset, uint32_t *age, uint32_t *num);
 
@@ -88,6 +91,7 @@ namespace LPC {
       int16_t (*read)(uint16_t* co2, int32_t* temp, int32_t* hum);
       int16_t (*frc)(uint16_t target, uint16_t* corr);
       int16_t (*persist)( void );
+      uint32_t (*getMsTick)(void);
     } scd_fp;
 
     typedef enum
@@ -107,7 +111,15 @@ namespace LPC {
 		uint32_t _cons_fail;
 	} fsm;
 
-	lpc_ret _proc_fsm(uint16_t co2, void (*yield)(void));
+	struct  {
+	    bool state = false;
+	    uint32_t lastTickMs = 0;
+	    uint32_t reqLockDurMs = 0;
+	} _mutex;
+    bool _mutex_request_lock(uint32_t dur);
+    bool _mutex_request_unlock(void);
+
+	lpc_ret _proc_fsm(uint16_t co2);
 	void _sig_fsm_next(void);
 	uint32_t _sig_get_fsm_offset(void);
 	uint32_t _sig_get_fsm_cnt(void);

@@ -32,7 +32,8 @@
 #include "sensirion_i2c_hal.h"
 #include "sensirion_common.h"
 #include "sensirion_config.h"
-
+#include "sl_i2cspm.h"
+#include "sl_sleeptimer.h"
 /*
  * INSTRUCTIONS
  * ============
@@ -84,8 +85,19 @@ void sensirion_i2c_hal_free(void) {
  * @returns 0 on success, error code otherwise
  */
 int8_t sensirion_i2c_hal_read(uint8_t address, uint8_t* data, uint16_t count) {
-    /* TODO:IMPLEMENT */
-    return NOT_IMPLEMENTED_ERROR;
+
+	I2C_TransferSeq_TypeDef i2cTransfer;
+	I2C_TransferReturn_TypeDef result;
+
+	// Initialize I2C transfer
+	i2cTransfer.addr = address << 1;
+	i2cTransfer.flags = I2C_FLAG_READ; // must write target address before reading
+	i2cTransfer.buf[0].data = data;
+	i2cTransfer.buf[0].len = count;
+
+	result = I2CSPM_Transfer(I2C0, &i2cTransfer);
+
+	return 0;
 }
 
 /**
@@ -101,8 +113,17 @@ int8_t sensirion_i2c_hal_read(uint8_t address, uint8_t* data, uint16_t count) {
  */
 int8_t sensirion_i2c_hal_write(uint8_t address, const uint8_t* data,
                                uint16_t count) {
-    /* TODO:IMPLEMENT */
-    return NOT_IMPLEMENTED_ERROR;
+    I2C_TransferSeq_TypeDef i2cTransfer;
+    I2C_TransferReturn_TypeDef result;
+
+    // Initialize I2C transfer
+    i2cTransfer.addr = address << 1 ;
+    i2cTransfer.flags = I2C_FLAG_WRITE;
+    i2cTransfer.buf[0].data = data;
+    i2cTransfer.buf[0].len = count;
+
+    result = I2CSPM_Transfer(I2C0, &i2cTransfer);
+    return 0;
 }
 
 /**
@@ -114,5 +135,6 @@ int8_t sensirion_i2c_hal_write(uint8_t address, const uint8_t* data,
  * @param useconds the sleep time in microseconds
  */
 void sensirion_i2c_hal_sleep_usec(uint32_t useconds) {
-    /* TODO:IMPLEMENT */
+	if(useconds > 1000) return;
+    sl_sleeptimer_delay_millisecond(useconds/1000);
 }
