@@ -11,9 +11,6 @@
 #include "stdint.h"
 #include <functional>
 #include <iostream>
-#include <queue>
-#include <string_view>
-#include <vector>
 
 const uint16_t SCD4X_LPC_BASELINE_CO2_PPM = 400;
 const uint32_t SCD4X_LPC_FIRST_CAL_TRIG_CNT = 1;
@@ -37,71 +34,91 @@ const uint32_t SCD4X_LPC_CMD_PERSIST_LOCK_DUR_MS = 800;
 
 namespace LPC {
 
-  typedef enum {
-    ERR_NONE, ERR_SCD, ERR_LPC, ERR_WAIT, ERR_PANIC, WARN_PRETRIG
-  } lpc_ret;
+typedef enum {
+	ERR_NONE, ERR_SCD, ERR_LPC, ERR_WAIT, ERR_PANIC, WARN_PRETRIG
+} lpc_ret;
 
-  class SCD4X
-  {
-  public:
-    SCD4X(int16_t (*wu)(void), int16_t (*pd)(void), int16_t (*meas)(void),
-          int16_t (*drdy)(bool *ready), int16_t (*read)(uint16_t* co2, int32_t* temp, int32_t* hum),
-          int16_t (*frc)(uint16_t target, uint16_t* corr), int16_t (*persist)(void),
-		  uint32_t (*getMsTick)(void));
+class SCD4X {
+public:
+	SCD4X(int16_t (*wu)(void), int16_t (*pd)(void), int16_t (*meas)(void),
+			int16_t (*drdy)(bool *ready),
+			int16_t (*read)(uint16_t *co2, int32_t *temp, int32_t *hum),
+			int16_t (*frc)(uint16_t target, uint16_t *corr),
+			int16_t (*persist)(void), uint32_t (*getMsTick)(void));
 
-    lpc_ret powerOn(void);
-    lpc_ret powerOff(void);
+	/**
+	 * @brief  This function powers up the sensor.
+	 * 		No calls to this API for 20ms after this should be made.
+	 * @retval lpc_ret error code
+	 */
+	lpc_ret powerOn(void);
 
+	/**
+	 * @brief  This function powers down the sensor
+	 * @retval lpc_ret error code
+	 */
+	lpc_ret powerOff(void);
 
-    /**
-      * @brief  This function is called after startup to perform a sensor read.
-      * 		The reading is invalid and nothing is returned.
-      * 		No calls to this API for 5000ms after this should be made.
-      * @retval lpc_ret error code
-      */
-    lpc_ret discardMeasurement(void);
+	/**
+	 * @brief  This function is called after startup to perform a sensor read.
+	 * 		The reading is invalid and nothing is returned.
+	 * 		No calls to this API for 5000ms after this should be made.
+	 * @retval lpc_ret error code
+	 */
+	lpc_ret discardMeasurement(void);
 
+	/**
+	 * @brief  This function is called after discardMeasurement() to perform a sensor read.
+	 * 		No calls to this API for 5000ms after this should be made.
+	 * @retval lpc_ret error code, WARN_PRETRIG if next call to read() will do FRC.
+	 */
+	lpc_ret measure(void);
 
+	/**
+	 * @brief  This function is called at least 5000ms after measure() and returns
+	 * 		sensor measurement data and performs FRC if applicable.
+	 * 		The user application must be able to handle random FRC should this
+	 * 		function be called. The maximum execution time is <410ms.
+	 * 		No calls to this API for 410ms after this should be made.
+	 * @param  co2,temp,hum pointers to store sensor data
+	 * @retval lpc_ret error code
+	 */
+	lpc_ret read(uint16_t *co2, int32_t *temp, int32_t *hum);
 
-    lpc_ret measure(void);
+	/**
+	 * @brief  This function retrieves the last calibration info and total count.
+	 * @param  offset,age,num pointers to store calibration info
+	 * @retval none
+	 */
+	void get_last_frc(int32_t *offset, uint32_t *age, uint32_t *num);
 
-    /**
-      * @brief  This function is called at least 5000ms after measure() and returns
-      * 		sensor measurement data and performs FRC if applicable.
-      *
-      *
-      * @param  co2,temp,hum pointers to store sensor data
-      * @param  yield pointer to app function
-      * @retval lpc_ret error code
-      */
-    lpc_ret read(uint16_t *co2, int32_t *temp, int32_t *hum);
+	/**
+	 * @brief  This function resets the internal finite state machine.
+	 * 		Should be used in the case of recoverable faults, signaled by ERR_PANIC.
+	 * 		Hence, the calibration history will persist.
+	 * @param  co2,temp,hum pointers to store sensor data
+	 * @retval lpc_ret error code
+	 */
+	lpc_ret sig_ext_reset_fsm(void);
+private:
 
-    void get_last_frc(int32_t *offset, uint32_t *age, uint32_t *num);
+	/* Struct of function ptrs to sensor driver */
+	struct {
+		int16_t (*wu)(void);
+		int16_t (*pd)(void);
+		int16_t (*meas)(void);
+		int16_t (*drdy)(bool *ready);
+		int16_t (*read)(uint16_t *co2, int32_t *temp, int32_t *hum);
+		int16_t (*frc)(uint16_t target, uint16_t *corr);
+		int16_t (*persist)(void);
+		uint32_t (*getMsTick)(void);
+	} scd_fp;
 
-    lpc_ret sig_ext_reset_fsm(void);
-  private:
-
-    /* Struct of function ptrs to sensor driver */
-    struct
-    {
-      int16_t (*wu)( void );
-      int16_t (*pd)( void );
-      int16_t (*meas)( void );
-      int16_t (*drdy)(bool *ready );
-      int16_t (*read)(uint16_t* co2, int32_t* temp, int32_t* hum);
-      int16_t (*frc)(uint16_t target, uint16_t* corr);
-      int16_t (*persist)( void );
-      uint32_t (*getMsTick)(void);
-    } scd_fp;
-
-    typedef enum
-	{
-    	STATE_FIRST,
-		STATE_INIT,
-		STATE_STD,
+	typedef enum {
+		STATE_FIRST, STATE_INIT, STATE_STD,
 	} e_state_t;
 
-    /* Core FSM struct */
+	/* Core FSM struct */
 	struct {
 		e_state_t state; // current state
 		int32_t ttl; // num measurements left in cycle
@@ -111,24 +128,24 @@ namespace LPC {
 		uint32_t _cons_fail;
 	} fsm;
 
-	struct  {
-	    bool state = false;
-	    uint32_t lastTickMs = 0;
-	    uint32_t reqLockDurMs = 0;
+	struct {
+		bool state = false;
+		uint32_t lastTickMs = 0;
+		uint32_t reqLockDurMs = 0;
 	} _mutex;
-    bool _mutex_request_lock(uint32_t dur);
-    bool _mutex_request_unlock(void);
+	bool _mutex_request_lock(uint32_t dur);
+	bool _mutex_request_unlock(void);
 
 	lpc_ret _proc_fsm(uint16_t co2);
 	void _sig_fsm_next(void);
 	uint32_t _sig_get_fsm_offset(void);
 	uint32_t _sig_get_fsm_cnt(void);
 	lpc_ret _sig_scd_fail(bool trig);
-    uint32_t frc_ctr = 0; // number of frcs done
-    int32_t prev_frc_offset = 0; // last offset (signed)
-    uint32_t prev_frc_age = 0;
+	uint32_t frc_ctr = 0; // number of frcs done
+	int32_t prev_frc_offset = 0; // last offset (signed)
+	uint32_t prev_frc_age = 0;
 
-  };
+};
 }
 
 #endif /* SENSORS_SCD4X_SCD4X_LPC_H_ */

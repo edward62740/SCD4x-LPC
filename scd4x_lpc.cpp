@@ -7,7 +7,6 @@
 #include "scd4x_lpc.h"
 #include "scd4x_i2c.h"
 
-
 namespace LPC {
 
   SCD4X::SCD4X(int16_t (*wu)(void), int16_t (*pd)(void), int16_t (*meas)(void),
@@ -39,6 +38,7 @@ lpc_ret SCD4X::sig_ext_reset_fsm(void) {
 	fsm.ttl = _sig_get_fsm_cnt();
 	fsm.limit = false;
 	fsm._cons_fail = 0;
+	_mutex.state = false;
 	return ERR_NONE;
 }
 
@@ -140,7 +140,6 @@ lpc_ret SCD4X::measure()
 		uint16_t ret = 0xFFFF;
 		scd_fp.frc(co2 - (fsm.limit ? _sig_get_fsm_offset() : offset),
 				&ret);
-
 		_mutex_request_lock(SCD4X_LPC_CMD_FRC_LOCK_DUR_MS);
 		frc_ctr++;
 		prev_frc_offset = ret - 0x8000U;
@@ -204,7 +203,6 @@ lpc_ret SCD4X::_sig_scd_fail(bool trig)
 		return ERR_NONE;
 	}
 	else fsm._cons_fail++;
-
 	return ERR_SCD;
 }
 

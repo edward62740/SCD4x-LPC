@@ -2,7 +2,7 @@
 The SCD4x sensor has a built-in Automatic Self-Calibration (ASC) that is not available for ultra-low power applications that require power-down of the sensor between measurements.
 
 This C++ algorithm attempts to emulate the behaviors of the ASC in single-shot mode, based on the ASC Application Note (p. 2-5,11-13). The key assumption is that the lowest measured co2 is no less than SCD4X_LPC_BASELINE_CO2_PPM.<br> 
-Do **not** use this library (or the ASC) if this assumption does not hold for the application requirements.<br>
+Do **not** use this (or the ASC) if the assumption does not hold for the application requirements.<br>
 
 ![Graph](https://github.com/edward62740/SCD4x-LPC/blob/master/graph.png)
 <br>*ASC Application Note (p. 5)*
@@ -23,7 +23,16 @@ In general, this algorithm has a FSM that goes through 3 states:
 - Standard: Standard period of 2016 measurements (recurring)
 
 <br> Wherein the FRC is allowed to run once per period, when the reading is below baseline OR at the end of the period, whichever is earlier.
-The maximum offset per period is also varied.
+The calibration is defined by a signed offset value for each period, where a measurement point $t \in [0, \text{NUM MEAS}] \cap \mathbb{Z}$, with $f(t)$ representing the co2 reading at point $t$:
+
+```math
+\text{{offset}} = \begin{cases}
+    \text{{BASELINE}} - f(t), & \text{{if }} f(t) < \text{{BASELINE}} \
+    \text{{BASELINE}} - \min(f(t)), & \text{{otherwise}}
+\end{cases}
+
+```
+Note that in the case where $f(t) < \text{{BASELINE}}$, accuracy may only be restored over a few periods, as the calibration point may represent only a local minimum.
 
 All the thresholds/configs are user-definable in the header file.
 
@@ -32,7 +41,6 @@ Initialization requires the necessary SCD4x driver function pointers to be passe
 LPC::SCD4X sensor(scd4x_wake_up, scd4x_power_down, scd4x_measure_single_shot,
 		 scd4x_get_data_ready_flag, scd4x_read_measurement, scd4x_perform_forced_recalibration,
 		 scd4x_persist_settings, sl_sleeptimer_get_tick_count);
-}
 ```
 
 It is recommended to disable ASC and set persistent settings prior to using this algorithm.
