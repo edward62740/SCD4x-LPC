@@ -1,4 +1,4 @@
-# SCD4x Low-Power Calibration (LPC) Algorithm [in progress]
+# SCD4x Low-Power Calibration (LPC) Algorithm
 The SCD4x sensor has a built-in Automatic Self-Calibration (ASC) that is not available for ultra-low power applications that require power-down of the sensor between measurements.
 
 This C++ algorithm attempts to emulate the behaviors of the ASC in single-shot mode, based on the ASC Application Note (p. 2-5,11-13). The key assumption is that the lowest measured co2 is no less than SCD4X_LPC_BASELINE_CO2_PPM.<br> 
