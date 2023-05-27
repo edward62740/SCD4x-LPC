@@ -1,4 +1,4 @@
 # Auto detect text files and perform LF normalization
 * text=auto
-*.c linguist-generated=true
-scd4x_driver/*.c linguist-generated=true
+*.c linguist-vendored=true
+scd4x_driver/*.c linguist-vendored=true
